@@ -44,295 +44,138 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install image processing dependency
-        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+      - name: Install preparation tools
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0 PyYAML==6.0.2
 
-      - name: Prepare preview application
+      - name: Prepare 0.8 with original decorations
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import shutil
-          import textwrap
-
-          root = Path('android-preview')
-          def write(path, content):
-              target = root / path
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(textwrap.dedent(content).lstrip(), encoding='utf-8')
-
-          write('settings.gradle', '''
-              pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-              dependencyResolutionManagement { repositories { google(); mavenCentral() } }
-              rootProject.name = 'TrianonPreview'
-              include ':app'
-          ''')
-          write('build.gradle', '''
-              plugins { id 'com.android.application' version '8.9.1' apply false }
-          ''')
-          write('app/build.gradle', '''
-              plugins { id 'com.android.application' }
-              android {
-                  namespace 'app.ghiky166.trianon.preview'
-                  compileSdk 35
-                  defaultConfig {
-                      applicationId 'app.ghiky166.trianon.preview'
-                      minSdk 26
-                      targetSdk 35
-                      versionCode 7
-                      versionName '0.7-preview'
-                  }
-                  compileOptions {
-                      sourceCompatibility JavaVersion.VERSION_17
-                      targetCompatibility JavaVersion.VERSION_17
-                  }
-              }
-          ''')
-          write('app/src/main/AndroidManifest.xml', '''
-              <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-                  <application android:label="Trianon 预览" android:allowBackup="false" android:enableOnBackInvokedCallback="false"
-                      android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
-                      android:theme="@android:style/Theme.Material.Light.NoActionBar"
-                      android:supportsRtl="true" android:usesCleartextTraffic="false">
-                      <activity android:name=".MainActivity" android:exported="true"
-                          android:windowSoftInputMode="adjustResize">
-                          <intent-filter>
-                              <action android:name="android.intent.action.MAIN" />
-                              <category android:name="android.intent.category.LAUNCHER" />
-                          </intent-filter>
-                      </activity>
-                  </application>
-              </manifest>
-          ''')
-          write('app/src/main/res/drawable/ic_trianon_background.xml', '''
-              <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-                  <solid android:color="#B9CADE" />
-              </shape>
-          ''')
-          write('app/src/main/res/drawable/ic_trianon_foreground.xml', '''
-              <vector xmlns:android="http://schemas.android.com/apk/res/android"
-                  android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-                  <path android:fillColor="#8FA8C5" android:pathData="M28,39 L80,39 Q84,39 84,43 L84,72 Q84,77 79,77 L29,77 Q24,77 24,72 L24,43 Q24,39 28,39 Z" />
-                  <path android:fillColor="#FCF8EE" android:strokeColor="#738BA9" android:strokeWidth="1.2"
-                      android:pathData="M28,35 L80,35 Q83,35 83,39 L83,69 Q83,73 79,73 L29,73 Q25,73 25,69 L25,39 Q25,35 28,35 Z" />
-                  <path android:fillColor="#F1ECDF" android:strokeColor="#A4B3C5" android:strokeWidth="0.8"
-                      android:pathData="M26,71 L47,52 Q54,47 61,52 L82,71 Z" />
-                  <path android:fillColor="#FFFCF5" android:strokeColor="#738BA9" android:strokeWidth="1.2"
-                      android:pathData="M26,37 L50,56 Q54,59 58,56 L82,37" />
-                  <path android:fillColor="#6982A8" android:strokeColor="#E1E7EF" android:strokeWidth="1"
-                      android:pathData="M64,61 A10,10 0,1 1,44 61 A10,10 0,1 1,64 61 Z" />
-                  <path android:fillColor="#FFF8E7" android:pathData="M48,55 L60,55 L60,58 L59,58 L58,56.5 L55,56.5 L55,66 L57,66 L57,67 L51,67 L51,66 L53,66 L53,56.5 L50,56.5 L49,58 L48,58 Z" />
-              </vector>
-          ''')
-          for icon_name in ('ic_launcher', 'ic_launcher_round'):
-              write(f'app/src/main/res/mipmap-anydpi-v26/{icon_name}.xml', '''
-                  <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-                      <background android:drawable="@drawable/ic_trianon_background" />
-                      <foreground android:drawable="@drawable/ic_trianon_foreground" />
-                  </adaptive-icon>
-              ''')
-          write('app/src/main/java/app/ghiky166/trianon/preview/MainActivity.java', '''
-              package app.ghiky166.trianon.preview;
-              import android.app.Activity;
-              import android.os.Bundle;
-              import android.webkit.WebView;
-              import android.webkit.WebViewClient;
-              import android.webkit.WebResourceRequest;
-              import android.content.Intent;
-              import android.net.Uri;
-
-              public class MainActivity extends Activity {
-                  private WebView web;
-                  @Override public void onCreate(Bundle state) {
-                      super.onCreate(state);
-                      web = new WebView(this);
-                      web.getSettings().setJavaScriptEnabled(true);
-                      web.getSettings().setDomStorageEnabled(true);
-                      web.getSettings().setAllowFileAccess(true);
-                      web.getSettings().setAllowContentAccess(false);
-                      web.getSettings().setAllowFileAccessFromFileURLs(false);
-                      web.getSettings().setAllowUniversalAccessFromFileURLs(false);
-                      web.getSettings().setBlockNetworkLoads(true);
-                      web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-                      android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
-                      web.getSettings().setUseWideViewPort(true);
-                      web.setInitialScale(100);
-                      web.getSettings().setLoadWithOverviewMode(false);
-                      web.getSettings().setBuiltInZoomControls(false);
-                      web.getSettings().setSupportZoom(false);
-                      web.getSettings().setDisplayZoomControls(false);
-                      web.setWebViewClient(new WebViewClient() {
-                          @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
-                              String url = r.getUrl().toString();
-                              if (url.startsWith("file:///android_asset/") || url.equals("about:blank")) return false;
-                              if (r.isForMainFrame() && (url.startsWith("https://") || url.startsWith("http://"))) {
-                                  try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                                  catch (android.content.ActivityNotFoundException ignored) { }
-                              }
-                              return true;
-                          }
-                      });
-                      setContentView(web);
-                      web.loadUrl("file:///android_asset/trianon.html#empty");
-                  }
-                  @Override public void onBackPressed() {
-                      if (web == null) { super.onBackPressed(); return; }
-                      web.evaluateJavascript("Boolean(window.__phoneBack && window.__phoneBack())", result -> {
-                          if (!"true".equals(result)) {
-                              if (web.canGoBack()) web.goBack(); else finish();
-                          }
-                      });
-                  }
-                  @Override protected void onPause() {
-                      if (web != null) web.onPause();
-                      super.onPause();
-                  }
-                  @Override protected void onResume() {
-                      super.onResume();
-                      if (web != null) web.onResume();
-                  }
-                  @Override protected void onDestroy() {
-                      if (web != null) { web.stopLoading(); web.destroy(); }
-                      super.onDestroy();
-                  }
-              }
-          ''')
-          assets = root / 'app/src/main/assets'
-          assets.mkdir(parents=True, exist_ok=True)
-          source = Path('dist/trianon.html')
-          if not source.is_file():
-              raise SystemExit('Missing dist/trianon.html in the repository')
-          import re
-          from pathlib import Path
-          from html.parser import HTMLParser
-          import re, hashlib, base64, io, json
-
-          class Outline(HTMLParser):
-              void = set('area base br col embed hr img input link meta param source track wbr'.split())
-              def __init__(self, text):
-                  super().__init__(convert_charrefs=False)
-                  self.text=text; self.lines=[0]; self.nodes=[]; self.stack=[]
-                  self.lines.extend(m.end() for m in re.finditer('\n',text))
-                  self.feed(text)
-              def pos(self):
-                  line,col=self.getpos(); return self.lines[line-1]+col
-              def handle_starttag(self,tag,attrs):
-                  n={'tag':tag,'a':dict(attrs),'start':self.pos(),'end':None,'parent':self.stack[-1] if self.stack else None}
-                  self.nodes.append(n)
-                  if tag in self.void: n['end']=self.pos()+len(self.get_starttag_text())
-                  else: self.stack.append(n)
-              def handle_startendtag(self,tag,attrs):
-                  self.handle_starttag(tag,attrs)
-                  if self.stack and self.stack[-1]['start']==self.pos():
-                      self.stack.pop()['end']=self.pos()+len(self.get_starttag_text())
-              def handle_endtag(self,tag):
-                  for i in range(len(self.stack)-1,-1,-1):
-                      if self.stack[i]['tag']==tag:
-                          end=self.text.find('>',self.pos())+1
-                          for n in self.stack[i:]: n['end']=end
-                          del self.stack[i:]; break
-              def find(self, *, id=None, cls=None):
-                  return next(n for n in self.nodes if (id is None or n['a'].get('id')==id) and (cls is None or cls in n['a'].get('class','').split()))
-              def part(self,n): return self.text[n['start']:n['end']]
-
-          def exactly(text, old, new):
-              if text.count(old)!=1: raise ValueError('Source changed; expected one patch anchor: '+old[:100])
-              return text.replace(old,new,1)
-
-          def prepare(source, assets, css, runtime):
-              source=Path(source); assets=Path(assets); assets.mkdir(parents=True,exist_ok=True)
-              raw=source.read_text(encoding='utf-8')
-              scripts=re.findall(r'<script\b[^>]*>(.*?)</script>',raw,re.S|re.I)
-              if len(scripts)!=24: raise ValueError('Unexpected upstream script layout')
-              # Keep the static stationery, the input, and the file sheet. Remove all other demo modules.
-              doc=Outline(raw)
-              home=doc.part(doc.find(id='vEmpty'))
-              composer=doc.part(doc.find(cls='composer'))
-              composer=composer.replace('<input class="ci" id="ci" type="text" autocomplete="off" spellcheck="false" aria-label="说一句话">','<textarea class="ci" id="ci" rows="1" autocomplete="off" spellcheck="false" aria-label="消息输入框"></textarea>')
-              composer=re.sub(r'<div class="hint">.*?</div>','',composer,flags=re.S)
-              composer=composer.replace('K3.1 Pro','选择模型').replace('>Max<','>预览<')
-              # Only these image globals are referenced by the retained file sheet.
-              need=set(re.findall(r'__IMG\.(\w+)',scripts[14]))
-              pairs=dict(re.findall(r'(\w+):"(data:[^"]+)"',scripts[1]))
-              image_js='window.__IMG='+json.dumps({k:pairs[k] for k in need},ensure_ascii=False)+';'
-              home_js=scripts[10]
-              home_js=exactly(home_js,"const RM=matchMedia('(prefers-reduced-motion: reduce)');","const RM={matches:true};")
-              start=home_js.index('let t0=performance.now();')
-              home_js=home_js[:start]+"window.__v11restart=()=>{exitT0=null;frame(5.7)};window.__v11frame=frame;frame(5.7);})();"
-              files_js=scripts[14]
-              files_js=exactly(files_js,"const RMQ=matchMedia('(prefers-reduced-motion: reduce)');","const RMQ={matches:true};")
-              # Drag-to-reference conflicts with touch scrolling; remove drag listeners and the follower loop.
-              a=files_js.index('/* ---------------------------------------------------------------- dragging'); z=files_js.index("rowsEl.addEventListener('click'",a)
-              files_js=files_js[:a]+"const pd0=null;\n"+files_js[z:]
-              files_js=files_js.replace('dragStart,dragMove,dragEnd,','')
-              a=files_js.index('const follow=()=>'); z=files_js.index('\n',a)
-              files_js=files_js[:a]+files_js[z:]
-              # The @ menu follows focus/input/resize rather than polling every frame.
-              files_js=files_js.replace('updAt();','updAt();placeAt();')
-              files_js=files_js.replace("trianon-workbench", "示例文件 · trianon")
-              # Remove the scripted demo tours, retaining only the normal file sheet boot.
-              a=files_js.index('/* ---------------------------------------------------------------- scenes') if '/* ---------------------------------------------------------------- scenes' in files_js else -1
-              if a<0:
-                  a=files_js.index('const boot0=()=>')
-              else:
-                  a=files_js.index('const boot0=()=>',a)
-              api=files_js.index('const api={emit,open,close,toggle')
-              boot="""const boot=()=>{loadTree(buildMock());W.branch=MOCK_GIT.branch;W.git={...MOCK_GIT.entries};S.exp=new Set(['src','src/renderer']);renderAll(false);};
-          (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(boot);
+          import hashlib, json, zlib, base64, urllib.request
+          import yaml
+          url = "https://raw.githubusercontent.com/Ghiky166/Trianon/843884b5db504712f051684acc7f5af6fd00fea8/.github/workflows/android.yml"
+          with urllib.request.urlopen(url, timeout=45) as response:
+              original = response.read()
+          if hashlib.sha256(original).hexdigest() != "defae2b73799200ca2af8b3dca37421921dc33f9db641c716ce83e99dac1f9e3":
+              raise SystemExit("Baseline workflow checksum mismatch")
+          workflow = yaml.safe_load(original)
+          step = next(s for s in workflow["jobs"]["build"]["steps"] if s.get("name") == "Prepare preview application")
+          code = step["run"].split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+          exec(compile(code, "verified-preview-builder", "exec"))
+          data = """
+          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
           """
-              files_js=files_js[:a]+boot+files_js[api:]
-              # Remove desktop editor/system-open actions that this offline APK cannot carry out.
-              for control in ('flEd','flCp','flOpenSys','flReveal'):
-                  files_js=re.sub(r"\$\{tabBtn\('"+control+r"',[^\n]*?\)\}", '', files_js)
-              files_js=files_js.replace('仍可 <code>@</code> 引用，交给 Kimi 用工具读取','当前仅展示示例文件信息，尚未接入真实模型')
-              # Standalone module files avoid inline script hashes and allow de-duplicated image resources.
-              keep_ids={'v10empty','rococoV2Empty','pageFonts','ly-fl'}
-              styles=[]
-              for i,m in enumerate(re.finditer(r'<style\b([^>]*)>(.*?)</style>',raw,re.S|re.I)):
-                  ident=re.search(r'id=["\']([^"\']+)',m[1])
-                  if i==2 or (ident and ident[1] in keep_ids): styles.append(m[2])
-              all_css='\n'.join(styles)+'\n'+css
-              html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Trianon 0.7</title><link rel="stylesheet" href="phone.css"></head><body class="v-empty"><div class="app"><section class="stage">'+home+'<div id="vLive" class="scroll chat vw"><div id="phoneMessages"></div></div>'+composer+'</section></div><script src="images.js"></script><script src="home.js"></script><script src="files.js"></script><script src="phone.js"></script></body></html>'
-              media=assets/'media'; media.mkdir(exist_ok=True)
-              stats={'sourceHtmlBytes':source.stat().st_size,'removedModules':['WebGL fog','opening film','custom cursor','terminal','browser','collection','engine status','desktop account and quota','right dossier','scripted turn engine','animation tours'],'imageReferences':0,'uniqueMedia':0,'resizedImages':0}
-              cache={}
-              def external(m):
-                  uri=m[0]
-                  if uri in cache: stats['imageReferences']+=1; return cache[uri]
-                  mime,payload=uri.split(';base64,',1); data=base64.b64decode(payload)
-                  ext={'data:image/png':'png','data:image/webp':'webp','data:image/jpeg':'jpg','data:font/woff2':'woff2','data:font/woff':'woff','data:application/font-woff':'woff'}.get(mime,'bin')
-                  if mime.startswith('data:image/'):
-                      from PIL import Image
-                      try:
-                          im=Image.open(io.BytesIO(data))
-                          if max(im.size)>1200:
-                              im.thumbnail((1200,1200),Image.Resampling.LANCZOS)
-                              buf=io.BytesIO(); im.save(buf,format='WEBP',quality=90,method=4); data=buf.getvalue(); ext='webp'; stats['resizedImages']+=1
-                      except (OSError,ValueError): pass
-                  path='media/'+hashlib.sha256(data).hexdigest()[:24]+'.'+ext
-                  (assets/path).write_bytes(data); cache[uri]=path; stats['imageReferences']+=1
-                  return path
-              files={'trianon.html':html,'phone.css':all_css,'images.js':image_js,'home.js':home_js,'files.js':files_js,'phone.js':runtime}
-              for name,text in files.items():
-                  text=re.sub(r'data:[\w/+.-]+;base64,[A-Za-z0-9+/=]+',external,text)
-                  (assets/name).write_text(text,encoding='utf-8')
-              stats['uniqueMedia']=len(list(media.iterdir()))
-              stats['preparedAssetBytes']=sum(p.stat().st_size for p in assets.rglob('*') if p.is_file())
-              stats['preparedHtmlBytes']=(assets/'trianon.html').stat().st_size
-              # Local-only offline preview. No remote script, frames, or model connection is permitted.
-              policy="default-src 'none'; script-src file:; style-src file: 'unsafe-inline'; img-src file: data: blob:; font-src file: data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
-              text=(assets/'trianon.html').read_text()
-              text=text.replace('<head>','<head><meta http-equiv="Content-Security-Policy" content="'+policy+'">',1)
-              (assets/'trianon.html').write_text(text,encoding='utf-8')
-              (assets/'build-info.json').write_text(json.dumps(stats,ensure_ascii=False,indent=2),encoding='utf-8')
-              print(json.dumps(stats,ensure_ascii=False))
-              return stats
-          prepare(source, assets, '/* 0.7: static stationery, native scrolling, event-driven sheets. */\n:root{--phone-font:11.5px;--page:#e3e9f1;--sheet:#faf9f4;--card:#f2f5fa;--text:#263655;--muted:#526583;--line:#98abc6;--accent:#526b96;--field:#f6f7fc;color-scheme:light}\nbody[data-phone-theme=dark]{--page:#1e2a40;--sheet:#2b3b54;--card:#31435f;--text:#edf2fa;--muted:#c4d0e2;--line:#859bbd;--accent:#acc5ed;--field:#2d3e59;color-scheme:dark}\n*,*::before,*::after{animation:none!important;transition:none!important;cursor:auto!important;box-sizing:border-box}\nhtml,body{width:100%!important;height:100%!important;min-width:0!important;margin:0!important;overflow:hidden!important;-webkit-text-size-adjust:100%;background:var(--page)!important;color:var(--text)!important}\nbody{font-family:var(--serif,Georgia,serif)}\nbutton,input,textarea{font:inherit}button,[role=button]{touch-action:manipulation}button{color:var(--text);background:var(--sheet);border:1px solid var(--line)}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button:disabled{opacity:.65}\n[hidden]{display:none!important}.app{inset:0!important;width:100%!important;height:var(--phone-height,100%)!important;min-width:0!important;display:flex!important;background:var(--page)!important}\nhtml body .stage{position:relative!important;display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;height:100%!important;margin:0!important;padding:50px 0 0!important;transform:none!important;background:var(--page)!important}\n#phoneHeader{position:fixed;z-index:120;inset:0 0 auto;height:50px;display:flex;align-items:center;gap:8px;padding:4px 9px;background:var(--sheet);border-bottom:1px solid var(--line);color:var(--text)}\n#phoneHeader>span{font:20px Georgia,serif}#phoneHeader small{margin-left:auto;font:10px sans-serif;white-space:nowrap;color:var(--muted)}#phoneHeader button{min-height:38px;min-width:38px;border-radius:11px;font-size:19px}#phoneHeader #phoneClose{font:12px sans-serif;padding:5px 8px}\n#phoneMenu{position:fixed;z-index:122;top:54px;left:9px;width:min(270px,calc(100vw - 18px));max-height:calc(var(--phone-height,100vh) - 65px);overflow:auto;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--sheet);box-shadow:0 5px 12px #17223824}\n#phoneMenu button{display:block;width:100%;min-height:42px;margin:3px 0;padding:8px 12px;text-align:left;border-radius:7px;background:var(--card);font-size:14px}\nhtml body .vw{position:relative!important;inset:auto!important;flex:1 1 0!important;min-height:0!important;width:100%!important;margin:0!important;overflow:auto!important;overscroll-behavior:contain;transform:none!important;opacity:1!important;display:none!important;padding:12px!important;touch-action:pan-y pinch-zoom}\nhtml body .vw.on{display:block!important}html body #vEmpty.on{display:flex!important;align-items:center!important;overflow:hidden!important;padding:0 8px!important}\nhtml body #vEmpty .hall{width:100%!important;height:100%!important;min-width:0!important;justify-content:center!important;padding:0!important;margin:0!important}\nhtml body #vEmpty .dsep{width:100%!important;font-size:10px!important;margin:0 0 5px!important;color:var(--muted)!important}\nhtml body #vEmpty .invite.c5i{width:700px!important;height:560px!important;zoom:var(--phone-collage-scale,.47)!important;flex:none!important}\nhtml body #vEmpty .tagcap{color:#384f76!important}html body #vEmpty .tag{color:#334b73!important}\nbody.phone-keyboard #vEmpty .hall{visibility:hidden!important}\nhtml body .composer{position:relative!important;inset:auto!important;flex:none!important;width:100%!important;padding:8px 10px max(12px,env(safe-area-inset-bottom))!important;margin:0!important;background:var(--page)!important;border:0!important;box-shadow:none!important}\nhtml body .composer .wrap{width:100%!important;max-width:100%!important;min-width:0!important;display:flex!important;align-items:center!important;gap:7px!important;margin:0!important;padding:0!important;transform:none!important}\nhtml body .field{position:relative!important;flex:1 1 0!important;min-width:0!important;max-width:100%!important;padding:10px!important;background:var(--field)!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:13px!important;box-shadow:inset 0 0 0 3px var(--field),inset 0 0 0 4px var(--line)!important}\nhtml body .field .fbow,html body .field .lb2{display:none!important}html body .field .ph{height:auto!important;min-height:34px!important;display:block!important;overflow:hidden!important;padding:0!important}\nhtml body .field .ph em,html body .field .ph .pht{display:none!important}\nhtml body .field .ph .ci{display:block!important;position:relative!important;inset:auto!important;width:100%!important;min-width:0!important;height:36px;max-height:116px;resize:none!important;padding:4px 2px!important;line-height:1.55!important;font-size:max(12px,var(--phone-font))!important;background:transparent!important;color:var(--text)!important;opacity:1!important;visibility:visible!important;border:0!important;outline:0;overflow-y:auto!important;-webkit-text-fill-color:var(--text)!important}\nhtml body .field .ci::placeholder{color:var(--muted)!important;opacity:1!important}\nhtml body .field .bar{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:5px 3px!important;padding-top:6px!important}\nhtml body .field .bar .pill{flex:none!important;position:relative!important;min-width:0!important;max-width:100%!important;height:30px!important;padding:4px 8px!important;font-size:10px!important;line-height:22px!important;color:var(--text)!important;background:var(--card)!important;border:0!important;white-space:nowrap!important;filter:none!important}\nhtml body .field .bar .plus{width:30px!important;padding:0!important;display:grid!important;place-items:center!important;line-height:1!important;font-size:23px!important;border:1px solid var(--line)!important;border-radius:50%!important;clip-path:none!important}\nhtml body .field .bar .mchip{position:relative!important;inset:auto!important;flex:0 1 auto!important;min-width:0!important;max-width:45%!important;height:30px!important;min-height:30px!important;margin-left:auto!important;padding:4px 10px!important;background:var(--card)!important;color:var(--text)!important;font-size:10px!important;display:flex!important;align-items:center!important;gap:3px!important;filter:none!important}\nhtml body .field .mc-m{font:italic 11px Georgia,serif!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)!important}html body .field .mc-eye,html body .field .mc-d,html body .field .mc-t{display:none!important}\nhtml body .send{position:relative!important;inset:auto!important;align-self:center!important;flex:0 0 44px!important;width:44px!important;height:58px!important;margin:0!important;transform:none!important;filter:none!important;background:transparent!important}\nhtml body .send img{position:relative!important;inset:auto!important;width:44px!important;height:58px!important;max-width:100%!important;object-fit:contain!important;transform:none!important;filter:none!important}\nhtml body .send .sl{position:absolute!important;left:0!important;right:0!important;top:auto!important;bottom:1px!important;text-align:center!important;font:italic 8px Georgia,serif!important;color:var(--text)!important;transform:none!important;opacity:1!important}\nhtml body .send .s1,html body .send .s2{display:none!important}html body .send .ap-stop,html body .send .ap-wait{position:absolute!important;left:50%!important;top:50%!important;width:32px!important;height:32px!important;transform:translate(-50%,-50%)!important;opacity:0!important;visibility:hidden!important;margin:0!important}\nhtml body .send .ap-wait svg{width:32px!important;height:32px!important}body.phone-wait .send .ap-wait{opacity:1!important;visibility:visible!important}body.phone-wait .send .sl{display:none!important}\n#phoneMessages{display:flex;flex-direction:column;gap:13px;min-width:0;width:100%;padding:6px 0 18px;color:var(--text)}\n.phone-day{color:var(--muted);font-size:10px;text-align:center;letter-spacing:2px;margin:0 0 12px}\n.phone-row{display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:100%;min-width:0}.phone-row.user{align-items:flex-end}.phone-who{font:10px Georgia,serif;letter-spacing:3px;color:var(--muted);padding:0 8px}\n.paper-bubble{position:relative;min-width:0;max-width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:19px;box-shadow:inset 0 0 0 3px var(--sheet),inset 0 0 0 4px var(--line);background:var(--sheet);color:var(--text);font-size:var(--phone-font);line-height:1.75;overflow-wrap:anywhere;white-space:pre-wrap}.phone-row.user .paper-bubble{background:var(--card);box-shadow:inset 0 0 0 3px var(--card),inset 0 0 0 4px var(--line);max-width:94%}\n.phone-sheet{position:fixed;z-index:60;inset:50px 0 auto;height:calc(var(--phone-height,100vh) - 50px);overflow:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;padding:17px 13px 26px;background:var(--page);color:var(--text);font-size:13px}\n.phone-sheet h1{font-size:25px;letter-spacing:5px;font-weight:500;margin:4px 0 18px}.phone-script{display:block;color:var(--muted);font:italic 20px Pinyon,PinyonX,Georgia,serif;letter-spacing:1px;margin-bottom:4px}.phone-note{font-size:12px;line-height:1.8;color:var(--muted);margin:10px 0}\n.stationery{position:relative;padding:18px 15px;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--sheet);box-shadow:inset 0 0 0 4px var(--sheet),inset 0 0 0 5px var(--line);min-width:0;overflow-wrap:anywhere}.stationery h2{font-size:15px;margin:0 0 9px;font-weight:500;color:var(--text)}\n.phone-segments{display:flex;gap:6px;min-width:0}.phone-segments button{flex:1;min-width:0;min-height:42px;border-radius:7px;padding:7px 4px;background:var(--card);font-size:12px}.phone-segments button[aria-checked=true]{background:var(--accent);color:var(--page);border-color:var(--accent)}\n.font-ticket{padding:18px 13px 14px;margin-top:20px;border-radius:18px 18px 8px 8px}.font-ticket::before{content:"Aa";position:absolute;top:-12px;right:16px;background:var(--sheet);padding:0 7px;color:var(--muted);font:italic 17px Georgia,serif}.font-caption{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:0 2px 10px;margin-bottom:12px}.font-caption span{font-size:11px;color:var(--muted)}.font-ticket #phoneFontSizes button{display:flex;align-items:center;justify-content:center;gap:4px;min-height:40px}.font-ticket #phoneFontSizes button::before{content:"Aa";font:italic 13px Georgia,serif}\n#phoneFontSample{margin:12px 0 0;padding:8px 4px;font-size:var(--phone-font);line-height:1.65;color:var(--muted)}\n.permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:21px 12px;padding:18px 0 5px;align-items:stretch}.permission-tag{position:relative;width:100%;margin:0;padding:33px 9px 18px;min-height:189px;border:1px solid var(--line);border-radius:40px 40px 12px 12px;background:var(--sheet);box-shadow:inset 0 0 0 4px var(--sheet),inset 0 0 0 5px var(--line);color:var(--text);text-align:center}.permission-tag::before{content:"";position:absolute;top:11px;left:calc(50% - 4px);width:8px;height:8px;border-radius:50%;border:1px solid var(--line);background:var(--page)}.permission-tag::after{content:"✦";position:absolute;bottom:7px;left:0;right:0;color:var(--muted);font-size:9px}.permission-tag[aria-checked=true]{outline:2px solid var(--accent);outline-offset:2px}.permission-tag strong{font-size:16px;font-weight:500;display:block;line-height:1.6;margin:8px 0}.permission-tag small{display:block;font-size:11px;color:var(--muted);line-height:1.8}.tag-number{font:10px Georgia,serif;letter-spacing:2px;color:var(--muted)}\n.permission-guide{align-self:stretch;display:flex;flex-direction:column;justify-content:center;padding:23px 13px 20px;margin:0;border-radius:30px 30px 12px 12px;font-size:12px;line-height:1.9}.permission-guide h2{font-size:14px;line-height:1.6;margin:0 0 10px}.permission-guide p{margin:0 0 8px}.permission-guide .phone-script{font-size:18px;margin:0 0 12px}\n.phone-search-field{display:flex;flex-direction:column;gap:8px;padding:14px 15px}.phone-search-field label{font:italic 20px Pinyon,PinyonX,Georgia,serif;color:var(--muted)}#phoneSearchInput{width:100%;min-width:0;min-height:40px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:14px}#phoneSearchInput::placeholder{color:var(--muted);opacity:1}.history-card{display:block;width:100%;text-align:left;line-height:1.8;padding:14px;margin:10px 0;border-radius:9px;background:var(--sheet);border:1px solid var(--line);font-size:13px}.history-card small{display:block;color:var(--muted);font-size:10px;margin-top:5px}.history-card p{font-size:12px;color:var(--muted);margin:6px 0 0;overflow-wrap:anywhere}.history-card mark{color:var(--text);background:var(--card)}\n.approval{width:100%;padding:14px 12px;white-space:normal;border-radius:9px;font-size:var(--phone-font)}.approval-title{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:9px;color:var(--text)}.approval-title em{font:italic 21px Pinyon,PinyonX,Georgia,serif;color:var(--muted)}.approval-file{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:11px;margin:10px 0 8px;color:var(--muted)}.approval-file code{font:11px monospace;color:var(--text)}.diff-scroll{width:100%;min-width:0;overflow:auto;overscroll-behavior-x:contain;border:1px solid var(--line);border-radius:9px;background:var(--card);padding:6px;color:var(--text)}.diff-code{min-width:max-content;font:10px/1.9 monospace;color:var(--text)}.diff-line{display:grid;grid-template-columns:15px auto;gap:5px;margin:3px 0;padding:2px 5px;border-radius:4px;color:inherit;white-space:pre}.diff-line.add{background:#d9eade;color:#204b39}.diff-line.del{background:#f0dce3;color:#672e43}.diff-line.hunk{font-size:9px;color:var(--muted)}body[data-phone-theme=dark] .diff-line.add{background:#284e45;color:#e0f9e9}body[data-phone-theme=dark] .diff-line.del{background:#613e50;color:#ffe5ef}.approval p{color:var(--muted);line-height:1.8}.approval-actions{display:flex;flex-wrap:wrap;gap:7px}.approval-actions button{min-height:35px;padding:6px 10px;border-radius:5px;font-size:11px;background:var(--card)}\n.phone-dialog-backdrop{position:fixed;z-index:140;inset:0;background:#10192b88;display:grid;place-items:center;padding:20px}.phone-dialog{width:100%;max-width:360px;background:var(--sheet);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:22px 19px;line-height:1.8}.phone-dialog h2{font-size:18px;margin:0 0 12px}.phone-dialog .phone-segments{margin-top:18px}\n/* Keep every file folder edge; scroll the sheet and its tree using the browser\'s touch scrolling. */\nhtml body #flRoot{position:fixed!important;inset:50px 0 auto!important;width:100%!important;height:calc(var(--phone-height,100vh) - 50px)!important;background:var(--page)!important;overflow-x:hidden!important;overflow-y:auto!important;visibility:hidden!important;pointer-events:none!important;touch-action:pan-y pinch-zoom!important;overscroll-behavior:contain!important}\nhtml body.fl-open #flRoot{visibility:visible!important;pointer-events:auto!important}html body #flDrawer{position:relative!important;inset:auto!important;margin:12px auto!important;width:396px!important;height:auto!important;min-height:876px!important;zoom:var(--phone-file-scale,.89)!important;transform:none!important;translate:none!important;scale:1!important;rotate:0deg!important}\nhtml body #flTree{position:relative!important;inset:auto!important;width:356px!important;height:auto!important;max-height:none!important;overflow:visible!important;margin:260px 20px 0!important;padding:0 0 25px!important;touch-action:pan-y pinch-zoom!important}\nhtml body #flCard{position:relative!important;inset:auto!important;width:356px!important;margin:14px 20px 0!important;height:140px!important}html body #flRows{height:auto!important;min-height:300px!important;transform:none!important}\nhtml body #flRows .fl-row{touch-action:pan-y pinch-zoom!important;user-select:none!important;-webkit-user-drag:none!important;opacity:1!important;transform:none!important}html body #flRows .fl-row.out{display:none!important}\nhtml body #flDrop,html body #flGhost,html body #flFly,html body #flFence{display:none!important}html body #flRoot #flPv:not(.on){display:none!important}html body #flRoot #flPv.on{position:fixed!important;inset:50px 0 auto!important;width:100vw!important;height:calc(var(--phone-height,100vh) - 50px)!important;margin:0!important;zoom:1!important;transform:none!important;overflow:auto!important;background:var(--sheet)!important;color:var(--text)!important}\nhtml body #flPv .pv-card{width:calc(100% - 22px)!important;max-width:100%!important;min-width:0!important;margin:10px 11px!important;transform:none!important}html body #flPv :is(.pv-h,.pv-bar,.pv-foot){max-width:100%!important;flex-wrap:wrap!important}html body #flPv .pv-body{max-width:100%!important;overflow:auto!important;color:var(--text)!important;background:var(--sheet)!important}html body #flPv :is(.pv-code,.pv-ln,.pv-code span,pre,code){color:var(--text)!important;background-color:transparent!important;font-size:11px!important}\nhtml body #flAt{position:fixed!important;left:10px!important;right:10px!important;top:auto!important;bottom:var(--phone-composer-height,130px)!important;max-width:calc(100vw - 20px)!important;max-height:35vh!important;overflow:auto!important;transform:none!important;background:var(--sheet)!important}html body #flAt .at-card{max-width:100%!important;transform:none!important}\n#flDrawer .phone-file-note{position:relative;margin:12px 20px;color:var(--muted);font-size:12px;line-height:1.8;padding:12px;background:var(--sheet);border:1px solid var(--line);border-radius:8px}\nbody[data-phone-theme=dark] #flDrawer :is(.fd-nm,.fd-n,.sl-nm,.fl-ws b,.lc-in,.gt-card b,.gt-card em,.gt-card small,.fl-fq input){color:var(--text)!important;-webkit-text-fill-color:var(--text)!important}\nbody[data-phone-theme=dark] #flDrawer :is(.fl-row,.ws-lab,.lc-lab,.gt-card,.fl-fq){background:var(--sheet)!important;border-radius:6px}\nbody[data-phone-theme=dark] #flDrawer :is(.fl-row,.ws-lab,.lc-lab,.gt-card,.fl-fq)>svg{opacity:.18!important}\nbody[data-phone-theme=dark] #flFlt{color:var(--text)!important;background:var(--sheet)!important}body[data-phone-theme=dark] #flFlt::placeholder{color:var(--muted)!important}\nbody[data-phone-theme=dark] #flDrawer .lc-in code{color:var(--text)!important}body[data-phone-theme=dark] #flPv :is(.pv-title,.pv-meta,.pv-act,.pv-type,.pv-path,.pv-txt,.pv-md,.pv-md *,.pv-p){color:var(--text)!important}\n@media(min-width:601px){html body .stage{max-width:600px!important;margin:0 auto!important}#phoneHeader{padding-left:max(9px,calc((100vw - 580px)/2))!important;padding-right:max(9px,calc((100vw - 580px)/2))!important}}\n\n/* File preview: the original letter frame fits the content and its controls wrap. */\nhtml body #flPv.on{padding:13px 10px!important;background:var(--page)!important}\nhtml body #flPv :is(.pv-layer,.pv-wm,.pv-bow,.pv-lily,.pv-seal,.pv-kim,.pv-rc){display:none!important}\nhtml body #flPv .pv-sheet{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:calc(var(--phone-height,100vh) - 90px)!important;transform:none!important;background:var(--sheet)!important;border:1px solid var(--line)!important;border-radius:12px!important;box-shadow:inset 0 0 0 4px var(--sheet),inset 0 0 0 5px var(--line)!important}\nhtml body #flPv .pv-sheet>.pp{display:none!important}\nhtml body #flPv .pv-sheet>.ct{position:relative!important;inset:auto!important;padding:22px 12px 20px!important;min-width:0!important}\nhtml body #flPv .pv-hd{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;padding-top:12px!important;min-width:0!important}\nhtml body #flPv .pv-path{position:relative!important;inset:auto!important;display:block!important;max-width:calc(100% - 26px)!important;width:auto!important;height:auto!important;background:var(--card)!important;border:1px solid var(--line)!important;border-radius:5px!important;padding:6px 8px!important}\nhtml body #flPv .pv-path>.pp{display:none!important}html body #flPv .pv-path>span{position:relative!important;inset:auto!important;display:block!important;font-size:11px!important;line-height:1.7!important;color:var(--text)!important;text-shadow:none!important;white-space:normal!important;overflow-wrap:anywhere!important}\nhtml body #flPv .pv-path i{color:var(--muted)!important}\nhtml body #flPv .pv-meta{position:relative!important;inset:auto!important;white-space:normal!important;margin:10px 2px!important;font-size:10px!important;color:var(--muted)!important;line-height:1.7!important}\nhtml body #flPv .pv-acts{position:relative!important;inset:auto!important;display:flex!important;flex-wrap:wrap!important;gap:8px!important;margin:12px 0!important;max-width:100%!important}\nhtml body #flPv .pv-b{max-width:100%!important;min-height:34px!important}.pv-b>span{font-size:11px!important}\nhtml body #flPv .pv-x{right:-3px!important;top:-14px!important}\nhtml body #flPv .pv-code{position:relative!important;inset:auto!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;min-height:120px!important;margin:14px 0 0!important;padding:8px 4px!important;overflow:auto!important;mask:none!important;-webkit-mask:none!important;background:var(--card)!important;border:1px solid var(--line)!important;border-radius:7px!important;color:var(--text)!important}\nhtml body #flPv .pv-code .ln{min-width:max-content!important;height:auto!important;min-height:21px!important;background:transparent!important}\nhtml body #flPv .pv-code :is(.ln b,.ln code,.ln code span){color:var(--text)!important;font-size:10px!important}\nhtml body #flPv .pv-img{position:relative!important;inset:auto!important;display:block!important;max-width:100%!important;margin:15px 0!important}\nhtml body #flPv .pv-pol{width:100%!important;height:auto!important;transform:none!important;padding:12px!important;background:var(--card)!important;border:1px solid var(--line)!important;border-radius:7px!important}\nhtml body #flPv .pv-pol>.pp{display:none!important}html body #flPv .pv-pol img{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-height:50vh!important;object-fit:contain!important}\nhtml body #flPv .pv-pol span{position:relative!important;inset:auto!important;display:block!important;margin-top:8px!important}html body #flPv .pv-pol :is(em,b){color:var(--text)!important;overflow-wrap:anywhere!important}\nhtml body #flPv .pv-bin{position:relative!important;inset:auto!important;margin:18px 0!important}\nhtml body #flPv :is(.pv-box,.pv-binseal,.pv-slip,.pv-binrc,.pv-binb){display:none!important}\nhtml body #flPv .pv-binx{position:relative!important;inset:auto!important;width:100%!important;color:var(--text)!important}html body #flPv .pv-binx :is(em,b,ul,li,code){color:var(--text)!important;font-size:12px!important;line-height:1.8!important;overflow-wrap:anywhere!important}\nhtml body .field .ph .fl-chips{position:relative!important;inset:auto!important;height:auto!important;display:flex!important;flex-wrap:wrap!important;gap:5px!important;margin-bottom:4px!important;max-width:100%!important}\nhtml body .field .ph .fl-chips:empty{display:none!important}html body .fl-chip{max-width:100%!important;transform:none!important;background:var(--card)!important;color:var(--text)!important;font-size:10px!important}html body .fl-chip :is(b,button){color:var(--text)!important}\nhtml body .field .ci{padding-left:2px!important;padding-right:2px!important}\nbody[data-phone-theme=light] .phone-segments button[aria-checked=true]{color:#fff}\n', "(() => {\n  'use strict';\n  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];\n  const body = document.body, root = document.documentElement;\n  const sizes = {large:13,medium:11.5,small:10.5};\n  const labels = {large:'大',medium:'中',small:'小'};\n  const system = matchMedia('(prefers-color-scheme: dark)');\n  const appearanceKey = 'trianon.phone.appearance.v1', fontKey = 'trianon.phone.fontPreset.v1';\n  const appearance = {theme:'auto',preset:'medium',permission:'ask'};\n  try {\n    const old = JSON.parse(localStorage.getItem(appearanceKey) || '{}');\n    if (['light','dark','auto'].includes(old.theme)) appearance.theme=old.theme;\n    if (['ask','sensitive','auto'].includes(old.permission)) appearance.permission=old.permission;\n    const preset=localStorage.getItem(fontKey); if(preset in sizes) appearance.preset=preset;\n  } catch (_) {}\n  const element = (tag,cls,text) => {const e=document.createElement(tag); if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e};\n  const button = (text,fn,cls) => {const e=element('button',cls,text);e.type='button';e.addEventListener('click',fn);return e};\n  const header=element('header'); header.id='phoneHeader';\n  const toggle=button('☰',()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden))});\n  toggle.setAttribute('aria-label','打开功能菜单');toggle.setAttribute('aria-expanded','false');\n  const badge=element('small',null,'离线预览 0.7');\n  const back=button('✕ 返回',()=>window.__phoneBack());back.id='phoneClose';back.hidden=true;\n  header.append(toggle,element('span',null,'Trianon'),badge,back);\n  const menu=element('nav');menu.id='phoneMenu';menu.hidden=true;menu.setAttribute('aria-label','功能菜单');\n  body.append(header,menu);\n  let sheet=null,dialog=null,activePanel='',returnFocus=null;\n  const closeMenu=()=>{menu.hidden=true;toggle.setAttribute('aria-expanded','false')};\n  function closePanels(){\n    if(dialog){dialog.remove();dialog=null;return true}\n    window.__files?.closePreview?.(true);window.__files?.closeAt?.();\n    if(window.__files?.S.open)window.__files.close();\n    const had=!!sheet||!!activePanel;sheet?.remove();sheet=null;activePanel='';back.hidden=true;\n    const prev=returnFocus;returnFocus=null;if(prev?.isConnected)prev.focus({preventScroll:true});return had;\n  }\n  window.__phoneBack=()=>{\n    if(dialog){dialog.remove();dialog=null;return true}\n    if(!menu.hidden){closeMenu();return true}\n    if(window.__files?.S.pv){window.__files.closePreview(true);return true}\n    if(window.__files?.S.at){window.__files.closeAt();return true}\n    return closePanels();\n  };\n  function newSheet(name,title,script){\n    closePanels();closeMenu();returnFocus=document.activeElement;activePanel=name;back.hidden=false;\n    sheet=element('section','phone-sheet');sheet.id='phone-'+name;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label',title);\n    sheet.append(element('span','phone-script',script),element('h1',null,title));body.append(sheet);return sheet;\n  }\n  document.addEventListener('pointerdown',e=>{if(!menu.contains(e.target)&&!header.contains(e.target))closeMenu()},{passive:true});\n  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&window.__phoneBack()){e.preventDefault();e.stopImmediatePropagation()}},true);\n  function applyAppearance(){\n    body.dataset.phoneTheme=appearance.theme==='auto'?(system.matches?'dark':'light'):appearance.theme;\n    body.dataset.phoneFont=appearance.preset;root.style.setProperty('--phone-font',sizes[appearance.preset]+'px');\n    $$('[data-theme-choice]').forEach(e=>e.setAttribute('aria-checked',String(e.dataset.themeChoice===appearance.theme)));\n    $$('[data-preset]').forEach(e=>e.setAttribute('aria-checked',String(e.dataset.preset===appearance.preset)));\n    $$('[data-permission]').forEach(e=>e.setAttribute('aria-checked',String(e.dataset.permission===appearance.permission)));\n    const label=$('#fontCurrent');if(label)label.textContent=labels[appearance.preset];\n    const pill=$('.pill.p');if(pill)pill.textContent={ask:'每次确认 ▾',sensitive:'敏感时确认 ▾',auto:'自动模式 ▾'}[appearance.permission];\n    try {localStorage.setItem(appearanceKey,JSON.stringify(appearance));localStorage.setItem(fontKey,appearance.preset)}catch(_){}\n  }\n  system.addEventListener('change',applyAppearance);\n  function segments(items,field){\n    const group=element('div','phone-segments');group.setAttribute('role','radiogroup');\n    for(const [value,label] of items){const e=button(label,()=>{appearance[field]=value;applyAppearance()});e.setAttribute('role','radio');if(field==='theme')e.dataset.themeChoice=value;else e.dataset.preset=value;group.append(e)}\n    return group;\n  }\n  function appearanceSheet(){\n    const page=newSheet('appearance','外观','Parure');\n    const theme=element('div','stationery');theme.append(element('h2',null,'纸页色调'),segments([['light','日间'],['dark','夜间'],['auto','跟随系统']],'theme'));\n    const font=element('div','stationery font-ticket');const caption=element('div','font-caption');const current=element('b',null,labels[appearance.preset]);current.id='fontCurrent';\n    caption.append(element('h2',null,'对话字号'),element('span',null,'正文 · 气泡 · 输入框'),current);\n    const group=segments([['large','大'],['medium','中'],['small','小']],'preset');group.id='phoneFontSizes';group.setAttribute('aria-label','对话字号');\n    const sample=element('p',null,'在一页信笺里，慢慢说完今天的故事。');sample.id='phoneFontSample';font.append(caption,group,sample);\n    page.append(theme,font,element('p','phone-note','主题和字号保存在本机。已停用持续动画，保留静态信笺与吊牌。'));applyAppearance();\n  }\n  function confirmPermission(value){\n    const choices=['ask','sensitive','auto'];\n    const accept=()=>{appearance.permission=value;applyAppearance()};\n    if(choices.indexOf(value)<=choices.indexOf(appearance.permission)){accept();return}\n    dialog=element('div','phone-dialog-backdrop');const box=element('div','phone-dialog');box.setAttribute('role','alertdialog');box.setAttribute('aria-label','确认放宽权限');\n    box.append(element('h2',null,'放宽执行权限？'),element('p',null,value==='auto'?'自动模式将减少逐次确认。当前仅保存界面偏好，尚未接入真实文件操作。':'敏感操作仍需要确认。当前仅保存界面偏好，尚未接入真实文件操作。'));\n    const controls=element('div','phone-segments');const no=button('取消',()=>{dialog.remove();dialog=null});const yes=button('确认切换',()=>{accept();dialog.remove();dialog=null});\n    controls.append(no,yes);box.append(controls);dialog.append(box);body.append(dialog);no.focus({preventScroll:true});\n  }\n  function permissionSheet(){\n    const page=newSheet('permission','执行权限','Trois degrés');\n    const grid=element('div','permission-grid');grid.setAttribute('role','radiogroup');grid.setAttribute('aria-label','执行权限');\n    const rows=[['ask','No. 01','每次都问','每一次文件修改\\n都先由你确认'],['sensitive','No. 02','敏感才问','覆盖、删除等操作\\n先由你确认'],['auto','No. 03','自动执行','在已授权范围内\\n减少逐次询问']];\n    for(const [value,no,title,text] of rows){const card=button('',()=>confirmPermission(value),'permission-tag');card.dataset.permission=value;card.setAttribute('role','radio');card.append(element('span','tag-number',no),element('strong',null,title),element('small',null,text));grid.append(card)}\n    const guide=element('div','stationery permission-guide');guide.append(element('h2',null,'由紧到松的三档'),element('em','phone-script','Trois degrés'),element('p',null,'01 → 03 依次放宽。切换到更宽松的档位前，需要确认。'),element('p',null,'此处是执行规则偏好，手机文件访问仍需系统授权。'));\n    grid.append(guide);page.append(grid,element('p','phone-note','离线预览：选择档位不会操作手机文件。'));applyAppearance();\n  }\n  function connectionSheet(){\n    const page=newSheet('connection','模型连接','Connexion');const card=element('div','stationery');\n    card.append(element('h2',null,'尚未接入真实模型'),element('p','phone-note','当前版本用于检查手机布局和运行流畅度。API 密钥输入暂未开放，请勿在聊天或示例文件中填写真实密钥。'));\n    page.append(card);\n  }\n  const sessions=[];let current=null,nextId=1;\n  const messages=$('#phoneMessages'),live=$('#vLive'),empty=$('#vEmpty'),ci=$('#ci'),field=$('.field');\n  ci.placeholder='Écrivez-moi · 说一句话…';\n  function showChat(){empty.classList.remove('on');live.classList.add('on');body.classList.remove('v-empty');body.classList.add('v-live')}\n  function showEmpty(){live.classList.remove('on');empty.classList.add('on');body.classList.remove('v-live');body.classList.add('v-empty');window.__v11restart?.()}\n  function renderMessage(message){\n    const row=element('div','phone-row '+message.role);row.append(element('span','phone-who',message.role==='user'?'VOUS':'TRIANON'));\n    const content=element('div','paper-bubble',message.text);row.append(content);messages.append(row);return row;\n  }\n  function renderSession(){messages.replaceChildren(element('div','phone-day','本机预览 · '+new Date().toLocaleDateString('zh-CN')));for(const m of current?.messages||[])renderMessage(m);showChat();live.scrollTop=live.scrollHeight}\n  function ensureSession(){if(!current){current={id:nextId++,title:'新的信笺',messages:[],date:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})};sessions.unshift(current);if(sessions.length>20)sessions.pop()}}\n  function resizeInput(){ci.style.height='36px';ci.style.height=Math.min(116,Math.max(36,ci.scrollHeight))+'px';field.classList.toggle('has',!!ci.value);fit()}\n  function sendNow(text){\n    text=(text||ci.value).trim();if(!text)return;closePanels();closeMenu();body.classList.remove('phone-wait');ensureSession();\n    if(!current.messages.length)current.title=text.slice(0,26);\n    current.messages.push({role:'user',text},{role:'assistant',text:'收到你的消息。当前仍是离线界面预览，尚未连接模型，也不会读取或修改手机文件。'});\n    if(current.messages.length>100)current.messages.splice(0,current.messages.length-100);\n    ci.value='';resizeInput();renderSession();ci.blur();\n  }\n  function newChat(){closePanels();closeMenu();current=null;messages.replaceChildren();ci.value='';body.classList.remove('phone-wait');window.__files?.S.chips.slice().forEach(()=>window.__files.removeChip(0));resizeInput();showEmpty()}\n  function historySheet(search=false){\n    const page=newSheet(search?'search':'history',search?'搜索':'历史会话',search?'Chercher':'Mémoire');\n    let input=null;\n    if(search){const card=element('div','stationery phone-search-field');const label=element('label',null,'Chercher · 搜索内容');label.htmlFor='phoneSearchInput';input=element('input');input.id='phoneSearchInput';input.type='search';input.placeholder='搜索会话或消息';input.autocomplete='off';card.append(label,input);page.append(card)}\n    const result=element('div');result.id='phoneSearchResults';result.setAttribute('aria-live','polite');page.append(result);\n    function draw(){\n      const q=(input?.value||'').trim().toLowerCase();result.replaceChildren();\n      const found=sessions.filter(s=>s.messages.some(m=>m.text.toLowerCase().includes(q))||s.title.toLowerCase().includes(q));\n      if(!found.length){result.append(element('div','stationery phone-note',q?'没有找到匹配的会话。':'还没有预览会话。发送一条消息后，会在这里显示。'));return}\n      for(const s of found){const card=button('',()=>{current=s;closePanels();body.classList.remove('phone-wait');renderSession()},'history-card');card.append(element('strong',null,s.title),element('small',null,s.messages.length+' 条消息 · '+s.date));const match=s.messages.find(m=>m.text.toLowerCase().includes(q));if(match)card.append(element('p',null,match.text.slice(0,120)));result.append(card)}\n    }\n    input?.addEventListener('input',draw);draw();page.append(element('p','phone-note','这里只保存本次打开期间的预览会话，关闭应用后不保留。'));\n  }\n  function fileSheet(){closePanels();closeMenu();activePanel='files';back.hidden=false;window.__files?.open();}\n  function approvalExample(){\n    closePanels();closeMenu();ensureSession();renderSession();body.classList.add('phone-wait');\n    const row=element('div','phone-row assistant'),card=element('div','paper-bubble approval');row.append(element('span','phone-who','TRIANON'),card);\n    const title=element('div','approval-title');title.append(element('em',null,'Permission'),element('span',null,'文件修改 · 界面示例'));\n    const meta=element('div','approval-file');meta.append(element('span',null,'EDIT FILE'),element('code',null,'adapter.ts'),element('span',null,'+3 −1'));\n    const scroll=element('div','diff-scroll');scroll.tabIndex=0;scroll.setAttribute('aria-label','修改差异，可左右滚动');const code=element('div','diff-code');\n    for(const [kind,sign,text] of [['hunk','','@@ -61,4 +61,6 @@ finish(msg)'],['','','const done = this.store.byId(msg.id)'],['del','−','this.store.push(msg)'],['add','+','if (done) return done.merge(msg)'],['add','+','this.store.push(msg)'],['add','+','this.seen.add(msg.id)']]){const line=element('div','diff-line '+kind);line.append(element('span',null,sign),element('span',null,text));code.append(line)}scroll.append(code);\n    const actions=element('div','approval-actions');\n    for(const text of ['允许','本会话都允许','拒绝'])actions.append(button(text,()=>{body.classList.remove('phone-wait');actions.replaceChildren(element('span','phone-note',text+' · 仅演示，没有写入文件。'))}));\n    card.append(title,element('p','phone-note','仅展示修改前后的差异，不会访问或修改你的手机文件。'),meta,scroll,element('p',null,'Reason · 结束时按 message id 去重，避免重复插入。'),actions);messages.append(row);showChat();live.scrollTop=live.scrollHeight;\n  }\n  for(const [name,fn] of [['新的对话',newChat],['历史会话',()=>historySheet(false)],['示例文件',fileSheet],['搜索',()=>historySheet(true)],['外观',appearanceSheet],['执行权限',permissionSheet],['模型连接',connectionSheet],['文件修改示例',approvalExample]])menu.append(button(name,fn));\n  $('.send').addEventListener('click',()=>sendNow());$('.send').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sendNow()}});\n  ci.addEventListener('input',resizeInput);ci.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&!window.__files?.S.at){e.preventDefault();sendNow()}});\n  $('.pill.plus').setAttribute('role','button');$('.pill.plus').setAttribute('aria-label','打开示例文件');$('.pill.plus').addEventListener('click',fileSheet);\n  $('.pill.p').addEventListener('click',permissionSheet);$('#mchip').addEventListener('click',connectionSheet);\n  $('#mchip').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();connectionSheet()}});\n  const tags=$$('#vEmpty .tag');const tagActions=[()=>sendNow('开始聊天预览'),fileSheet,approvalExample];const tagLabels=['开始聊天','查看示例文件','修改差异示例'];tags.forEach((e,i)=>{const fn=tagActions[i%3];e.querySelector('span').textContent=tagLabels[i%3];e.setAttribute('role','button');e.tabIndex=0;e.addEventListener('click',fn);e.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn()}})});\n  window.__rk={sendNow,newChat};\n  // No timer or perpetual frame loop: recalculate only when the viewport/input changes.\n  let highest=innerHeight;\n  function fit(){\n    const width=Math.min(600,root.clientWidth),height=Math.round(visualViewport?.height||innerHeight);\n    highest=Math.max(highest,height);const typing=/INPUT|TEXTAREA/.test(document.activeElement?.tagName||'');\n    body.classList.toggle('phone-keyboard',typing&&highest-height>120);\n    root.style.setProperty('--phone-height',height+'px');root.style.setProperty('--phone-file-scale',Math.min(1,(width-20)/396));\n    const ch=$('.composer').getBoundingClientRect().height;root.style.setProperty('--phone-composer-height',ch+'px');\n    root.style.setProperty('--phone-collage-scale',Math.max(.15,Math.min((width-24)/700,(height-50-ch-32)/560,.8)));\n  }\n  addEventListener('resize',fit);visualViewport?.addEventListener('resize',fit);addEventListener('orientationchange',()=>{highest=0;fit()});\n  document.addEventListener('focusin',fit);document.addEventListener('focusout',fit);\n  // File close is owned by its original static sheet; keep the persistent return button in sync.\n  new MutationObserver(()=>{if(activePanel==='files'&&!body.classList.contains('fl-open')){activePanel='';back.hidden=true}}).observe(body,{attributes:true,attributeFilter:['class']});\n  const drawer=$('#flDrawer');if(drawer){const note=element('p','phone-file-note','这里展示示例目录与文件，尚未接入手机存储。轻点查看，上下滑动滚动；已取消拖拽。');drawer.append(note)}\n  applyAppearance();fit();\n  window.__phonePreview={appearance,appearanceSheet,permissionSheet,connectionSheet,historySheet,fileSheet,approvalExample,sendNow,newChat,sessions};\n})();\n")
-          for name in ('LICENSE', 'ASSETS.md'):
-              shutil.copy2(name, assets / name)
-          if Path('licenses').is_dir():
-              shutil.copytree('licenses', assets / 'licenses', dirs_exist_ok=True)
-          print('Preview prepared. Version 0.7 contains static stationery and offline previews; live AI and phone file tools are not implemented.')
+          patch = json.loads(zlib.decompress(base64.b64decode(data)))
+          exec(compile(patch["py"], "original-decoration-restoration", "exec"))
+          restore("android-preview/app/src/main/assets", "dist/trianon.html", patch["css"], patch["js"])
           PY
 
       - name: Build installable APK
@@ -342,13 +185,12 @@ jobs:
       - name: Prepare download
         run: |
           mkdir -p apk-download
-          cp android-preview/app/build/outputs/apk/debug/app-debug.apk apk-download/Trianon-preview-0.7.apk
-          printf '%s\n' 'Trianon preview: UI demo only. AI chat and phone file editing are not implemented yet.' 'This is a debug preview. Signing may change between builds; do not store important data in it.' > apk-download/README.txt
+          cp android-preview/app/build/outputs/apk/debug/app-debug.apk apk-download/Trianon-preview-0.8.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Trianon-preview-0.7-APK
+          name: Trianon-preview-0.8-APK
           path: apk-download/
           if-no-files-found: error
           retention-days: 7
