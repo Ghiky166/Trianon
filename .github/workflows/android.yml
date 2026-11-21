@@ -71,8 +71,8 @@ jobs:
                       applicationId 'app.ghiky166.trianon.preview'
                       minSdk 26
                       targetSdk 35
-                      versionCode 1
-                      versionName '0.1-preview'
+                      versionCode 3
+                      versionName '0.3-preview'
                   }
                   compileOptions {
                       sourceCompatibility JavaVersion.VERSION_17
@@ -83,6 +83,7 @@ jobs:
           write('app/src/main/AndroidManifest.xml', '''
               <manifest xmlns:android="http://schemas.android.com/apk/res/android">
                   <application android:label="Trianon 预览" android:allowBackup="false"
+                      android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
                       android:theme="@android:style/Theme.Material.Light.NoActionBar"
                       android:supportsRtl="true" android:usesCleartextTraffic="false">
                       <activity android:name=".MainActivity" android:exported="true"
@@ -95,6 +96,33 @@ jobs:
                   </application>
               </manifest>
           ''')
+          write('app/src/main/res/drawable/ic_trianon_background.xml', '''
+              <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+                  <solid android:color="#B9CADE" />
+              </shape>
+          ''')
+          write('app/src/main/res/drawable/ic_trianon_foreground.xml', '''
+              <vector xmlns:android="http://schemas.android.com/apk/res/android"
+                  android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+                  <path android:fillColor="#8FA8C5" android:pathData="M28,39 L80,39 Q84,39 84,43 L84,72 Q84,77 79,77 L29,77 Q24,77 24,72 L24,43 Q24,39 28,39 Z" />
+                  <path android:fillColor="#FCF8EE" android:strokeColor="#738BA9" android:strokeWidth="1.2"
+                      android:pathData="M28,35 L80,35 Q83,35 83,39 L83,69 Q83,73 79,73 L29,73 Q25,73 25,69 L25,39 Q25,35 28,35 Z" />
+                  <path android:fillColor="#F1ECDF" android:strokeColor="#A4B3C5" android:strokeWidth="0.8"
+                      android:pathData="M26,71 L47,52 Q54,47 61,52 L82,71 Z" />
+                  <path android:fillColor="#FFFCF5" android:strokeColor="#738BA9" android:strokeWidth="1.2"
+                      android:pathData="M26,37 L50,56 Q54,59 58,56 L82,37" />
+                  <path android:fillColor="#6982A8" android:strokeColor="#E1E7EF" android:strokeWidth="1"
+                      android:pathData="M64,61 A10,10 0,1 1,44 61 A10,10 0,1 1,64 61 Z" />
+                  <path android:fillColor="#FFF8E7" android:pathData="M48,55 L60,55 L60,58 L59,58 L58,56.5 L55,56.5 L55,66 L57,66 L57,67 L51,67 L51,66 L53,66 L53,56.5 L50,56.5 L49,58 L48,58 Z" />
+              </vector>
+          ''')
+          for icon_name in ('ic_launcher', 'ic_launcher_round'):
+              write(f'app/src/main/res/mipmap-anydpi-v26/{icon_name}.xml', '''
+                  <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+                      <background android:drawable="@drawable/ic_trianon_background" />
+                      <foreground android:drawable="@drawable/ic_trianon_foreground" />
+                  </adaptive-icon>
+              ''')
           write('app/src/main/java/app/ghiky166/trianon/preview/MainActivity.java', '''
               package app.ghiky166.trianon.preview;
               import android.app.Activity;
@@ -115,7 +143,8 @@ jobs:
                       web.getSettings().setAllowFileAccess(true);
                       web.getSettings().setAllowContentAccess(false);
                       web.getSettings().setUseWideViewPort(true);
-                      web.getSettings().setLoadWithOverviewMode(true);
+                      web.setInitialScale(100);
+                      web.getSettings().setLoadWithOverviewMode(false);
                       web.getSettings().setBuiltInZoomControls(true);
                       web.getSettings().setDisplayZoomControls(false);
                       web.setWebViewClient(new WebViewClient() {
@@ -146,7 +175,16 @@ jobs:
           source = Path('dist/trianon.html')
           if not source.is_file():
               raise SystemExit('Missing dist/trianon.html in the repository')
-          shutil.copy2(source, assets / 'trianon.html')
+          import re
+          html = source.read_text(encoding='utf-8')
+          html = re.sub(r'<meta\b[^>]*name=[\"\']viewport[\"\'][^>]*>', '', html, flags=re.I)
+          viewport = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+          html = html.replace('<head>', '<head>' + viewport, 1)
+          mobile_css = '/* Phone layout v0.3: keep controls at readable size; scale only decorative collage. */\n@media (max-width: 600px) {\n  html, body { width:100%!important; height:100%!important; min-width:0!important; margin:0!important; overflow:hidden!important; -webkit-text-size-adjust:100%; }\n  .app { inset:0!important; width:100%!important; height:var(--phone-height,100%)!important; min-width:0!important; }\n  html body .stage { width:100%!important; min-width:0!important; transform:none!important; padding:0!important; }\n  html body .thread, html body .wrap, html body:not(.rp-open):not(.fl-open) .thread,\n  html body:not(.rp-open):not(.fl-open) .wrap { width:100%!important; max-width:100%!important; min-width:0!important; box-sizing:border-box!important; transition:none!important; }\n  html body .composer { flex:none!important; width:100%!important; box-sizing:border-box!important; padding:8px 10px max(12px,env(safe-area-inset-bottom))!important; margin:0!important; }\n  html body .wrap { align-items:flex-end!important; gap:5px!important; }\n  html body .field { flex:1 1 0!important; min-width:0!important; box-sizing:border-box!important; padding:13px 12px 12px!important; }\n  html body .field .fbow { display:none!important; }\n  html body .field .ph { height:38px!important; gap:6px!important; min-width:0!important; overflow:hidden!important; }\n  html body .field .ph em { font-size:18px!important; white-space:nowrap; }\n  html body .field .ph .pht { font-size:13px!important; white-space:nowrap; }\n  html body input.ci, html body input, html body textarea { font-size:16px!important; }\n  html body .field .ph .ci { box-sizing:border-box!important; width:100%!important; min-width:0!important; }\n  html body .field .bar { display:flex!important; flex-wrap:wrap!important; align-items:center!important; gap:5px 3px!important; }\n  html body .field .bar .pill { flex:none!important; font-size:11px!important; max-width:100%!important; box-sizing:border-box!important; }\n  html body .field .bar .plus { min-width:28px!important; min-height:28px!important; display:grid!important; place-items:center!important; }\n  html body .composer .field .bar .mchip { flex:none!important; margin:0 0 0 auto!important; max-width:100%!important; font-size:11px!important; min-height:28px!important; }\n  html body .send { flex:0 0 48px!important; width:48px!important; height:58px!important; margin:0 0 8px!important; }\n  html body .send img { max-width:100%!important; max-height:100%!important; object-fit:contain!important; }\n  html body .send .sl { font-size:9px!important; }\n  html body .vw { top:54px!important; bottom:var(--cH,148px)!important; min-height:0!important; overflow:auto!important; overscroll-behavior:contain; }\n  html body .scroll { padding:8px 12px!important; box-sizing:border-box!important; }\n  html body #vEmpty { padding:0 8px!important; overflow:hidden!important; }\n  html body #vEmpty .hall { width:100%!important; height:100%!important; min-width:0!important; padding:0!important; justify-content:center!important; box-sizing:border-box!important; }\n  html body #vEmpty .dsep { width:100%!important; flex:none!important; margin:0 0 4px!important; font-size:10px!important; }\n  html body #vEmpty .invite.c5i { width:700px!important; height:560px!important; zoom:var(--phone-collage-scale,.48)!important; flex:none!important; }\n  html body .row { max-width:100%!important; box-sizing:border-box!important; }\n  html body .b, html body .tool, html body pre { max-width:100%!important; min-width:0!important; box-sizing:border-box!important; overflow-wrap:anywhere; }\n  html body pre { overflow:auto!important; }\n  html body .rail { visibility:hidden!important; pointer-events:none!important; left:-150px!important; }\n  html body .edge, html body #rpTab { display:none!important; }\n  #phoneHeader { position:fixed; z-index:120; left:0; right:0; top:0; height:50px; display:flex; align-items:center; gap:10px; padding:0 12px; background:rgba(242,245,250,.9); border-bottom:1px solid #becbdd; box-sizing:border-box; color:#425779; font:16px Georgia,serif; }\n  #phoneHeader small { margin-left:auto; font:11px sans-serif; color:#667b96; }\n  #phoneHeader button { min-width:40px; min-height:40px; border:1px solid #b5c4d8; border-radius:12px; background:#faf9f4; color:#425779; font-size:20px; }\n  #phoneMenu { position:fixed; top:54px; left:10px; z-index:121; max-height:calc(var(--phone-height,100vh) - 72px); width:min(270px,calc(100vw - 20px)); overflow:auto; padding:8px; box-sizing:border-box; border:1px solid #b5c4d8; border-radius:14px; background:#f9f8f2; box-shadow:0 8px 25px #40507033; }\n  #phoneMenu[hidden] { display:none!important; }\n  #phoneMenu button { display:block; width:100%; min-height:44px; text-align:left; padding:8px 12px; margin:2px 0; border:0; border-radius:8px; background:#e8edf5; color:#425779; font-size:15px; }\n  body.phone-keyboard #vEmpty .hall { visibility:hidden!important; }\n  /* Keep desktop auxiliary sheets reachable; their inner designs will be adapted separately. */\n  html body .folio { max-width:calc(100vw - 12px)!important; right:6px!important; }\n}\n@media (min-width:601px) { #phoneHeader, #phoneMenu { display:none!important; } }\n'
+          mobile_js = "(() => {\n  'use strict';\n  const root = document.documentElement;\n  const body = document.body;\n  const header = document.createElement('header');\n  header.id = 'phoneHeader';\n  const toggle = document.createElement('button');\n  toggle.type = 'button'; toggle.textContent = '☰';\n  toggle.setAttribute('aria-label', '打开功能菜单');\n  toggle.setAttribute('aria-expanded', 'false');\n  const title = document.createElement('span'); title.textContent = 'Trianon';\n  const badge = document.createElement('small'); badge.textContent = '界面预览 0.3';\n  header.append(toggle, title, badge);\n  const menu = document.createElement('nav');\n  menu.id = 'phoneMenu'; menu.hidden = true; menu.setAttribute('aria-label', '功能菜单');\n  document.querySelectorAll('.rail .it').forEach((original, index) => {\n    const button = document.createElement('button'); button.type = 'button';\n    button.textContent = original.getAttribute('aria-label') || original.textContent.trim() || `功能 ${index + 1}`;\n    button.addEventListener('click', () => { closeMenu(); original.click(); });\n    menu.appendChild(button);\n  });\n  function closeMenu() { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }\n  toggle.addEventListener('click', () => { menu.hidden = !menu.hidden; toggle.setAttribute('aria-expanded', String(!menu.hidden)); });\n  document.addEventListener('pointerdown', event => {\n    if (!header.contains(event.target) && !menu.contains(event.target)) closeMenu();\n  });\n  body.append(header, menu);\n  const composer = document.querySelector('.composer');\n  let maxHeight = innerHeight;\n  let frame = 0;\n  function refresh() {\n    frame = 0;\n    const visual = window.visualViewport;\n    const height = Math.round(visual ? visual.height : innerHeight);\n    const width = document.documentElement.clientWidth;\n    if (width > 600) { root.style.removeProperty('--phone-height'); body.classList.remove('phone-keyboard'); return; }\n    maxHeight = Math.max(maxHeight, height);\n    const isInput = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');\n    const keyboard = isInput && maxHeight - height > 120;\n    body.classList.toggle('phone-keyboard', keyboard);\n    root.style.setProperty('--phone-height', `${height}px`);\n    const composerHeight = composer ? composer.getBoundingClientRect().height : 148;\n    // Fit collage both horizontally and vertically, without scaling text fields.\n    const scale = Math.max(.15, Math.min((width - 24) / 700, (height - 54 - composerHeight - 28) / 560, .8));\n    root.style.setProperty('--phone-collage-scale', String(scale));\n    body.style.setProperty('--cH', `${Math.ceil(composerHeight)}px`);\n  }\n  function schedule() { if (!frame) frame = requestAnimationFrame(refresh); }\n  addEventListener('resize', schedule);\n  window.visualViewport?.addEventListener('resize', schedule);\n  addEventListener('orientationchange', () => { maxHeight = 0; schedule(); });\n  document.addEventListener('focusin', schedule);\n  document.addEventListener('focusout', () => { schedule(); setTimeout(schedule, 250); });\n  if (composer) new ResizeObserver(schedule).observe(composer);\n  refresh();\n})();\n"
+          html = html.replace('</head>', '<style id="phoneLayout">' + mobile_css + '</style></head>', 1)
+          html = html.replace('</body>', '<script>' + mobile_js + '</script></body>', 1)
+          (assets / 'trianon.html').write_text(html, encoding='utf-8')
           for name in ('LICENSE', 'ASSETS.md'):
               shutil.copy2(name, assets / name)
           if Path('licenses').is_dir():
