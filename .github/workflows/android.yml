@@ -601,6 +601,104 @@ jobs:
           fix010("android-preview/app/src/main/assets", '/* 0.10 — only the composer and the file-list obstruction are changed. */\n/* Bring back the upstream rose/blue ribbon palette, metal bead and model ticket. */\nhtml body .field{padding:12px 14px 13px!important}\nhtml body .field .lb2{inset:8px!important;border:1px dashed #a7b2c8!important;background:linear-gradient(180deg,#f5f7fb,#ecf0f7)!important}\nhtml body .field .bar{display:grid!important;grid-template-columns:32px max-content max-content minmax(0,1fr)!important;align-items:center!important;gap:7px 5px!important;padding-top:6px!important}\nhtml body .field .bar .pill{height:30px!important;min-height:30px!important;line-height:1!important;font-size:11px!important;letter-spacing:.03em!important;justify-content:center!important}\nhtml body .field .bar .pill.plus{grid-column:1;grid-row:1;width:32px!important;height:32px!important;padding:0!important;border:0!important;outline-offset:2px;color:#60718f!important;background:radial-gradient(circle at 35% 28%,#fff 6%,#f0f3f9 38%,#d5dce9 76%,#b5c0d3)!important;box-shadow:inset .5px .5px 1px #fff,0 2px 4px #52627c40!important;font-size:25px!important;font-weight:300!important}\nhtml body .field .bar .pill.rb{border:0!important;border-radius:0!important;padding:0 12px!important;background:linear-gradient(180deg,#f3e2e8,#e7ccd7)!important;color:#725261!important;box-shadow:0 1px 2px #6e505f24!important;clip-path:polygon(0 0,100% 0,calc(100% - 7px) 50%,100% 100%,0 100%,7px 50%)!important}\nhtml body .field .bar .pill.p{grid-column:2;grid-row:1}\nhtml body .field .bar .pill.rb.blue{grid-column:3;grid-row:1;background:linear-gradient(180deg,#e3eaf6,#cbd7eb)!important;color:#465b82!important;padding:0 13px!important}\nhtml body .field .bar #mchip{grid-column:2 / -1;grid-row:2;justify-self:end;position:relative!important;inset:auto!important;width:max-content!important;min-width:165px!important;max-width:100%!important;height:31px!important;min-height:31px!important;margin:0!important;padding:0 10px 0 22px!important;gap:6px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:none!important;background:linear-gradient(180deg,#fdfcf8,#eaf0f8)!important;color:#3e4c76!important;border:0!important;border-radius:0!important;box-shadow:none!important;filter:drop-shadow(0 1px 1px #28345f20)!important;clip-path:polygon(10px 0,100% 0,100% 100%,10px 100%,0 50%)!important}\nhtml body .field .bar #mchip::before{inset:1px!important;box-shadow:inset 0 0 0 1px #9bacc9!important}\nhtml body .field #mchip .mc-eye{display:block!important;left:10px!important;width:6px!important;height:6px!important;flex:none!important}\nhtml body .field #mchip .mc-m{font:italic 14px/1.2 CormI,Georgia,serif!important;color:#3e4c76!important;letter-spacing:0!important}\nhtml body .field #mchip .mc-d{display:block!important;font:12px/1 Georgia,serif!important;color:#96a4bd!important}\nhtml body .field #mchip .mc-t{display:block!important;font:10px/1.2 var(--serif,serif)!important;letter-spacing:2px!important;min-width:0!important;color:#926878!important;white-space:nowrap!important}\nhtml body .field #mchip .mc-car{display:block!important;flex:none!important;width:9px!important;height:9px!important;margin-left:1px!important}\nbody[data-phone-theme=dark] .field .lb2{background:linear-gradient(180deg,#354965,#293c57)!important}\n/* Remove the closed blue arch/doors, not the decorated file rows behind them. */\nhtml body #flDrawer .fl-gates{display:none!important}\n/* The former tree margin collapsed through the drawer and put rows over its header.\n   Contain that existing margin; retain the original labels, folders and ornaments. */\nhtml body #flDrawer{display:flow-root!important}\n')
           PY
 
+      - name: Fix typography output state and file board 0.11
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+
+          def fix011(assets,css):
+              assets=Path(assets)
+              # The legacy artwork uses px fonts (including font: shorthands). Convert
+              # their font sizes only, not dimensions, colours, images or ornament geometry.
+              def scale_size(m):
+                  prefix,value=m.group(1),m.group(2)
+                  if '--phone-font' in value or '--pfs' in value or '--ui-font-scale' in value:return m[0]
+                  if not re.search(r'\d(?:px|vw|vh)\b',value):return m[0]
+                  return prefix+'calc(('+value.strip()+') * var(--ui-font-scale,1))'
+              def scalable(text):
+                  text=re.sub(r'(font-size\s*:\s*)([^;{}!]+)',scale_size,text)
+                  # Upstream shorthands are numeric px or a clamp() followed by family/line height.
+                  def short(m):
+                      value=m.group(2)
+                      value=re.sub(r'(?<![\w.-])(\d+(?:\.\d+)?)px(?=\s|/)',lambda x:'calc('+x[0]+' * var(--ui-font-scale,1))',value,count=1)
+                      if 'clamp(' in value and '--ui-font-scale' not in value:
+                          value=re.sub(r'clamp\([^()]+\)',lambda x:'calc('+x[0]+' * var(--ui-font-scale,1))',value,count=1)
+                      return m.group(1)+value
+                  return re.sub(r'(\bfont\s*:\s*)([^;{}]+)',short,text)
+              counts={}
+              for p in assets.glob('*.css'):
+                  before=p.read_text();after=scalable(before);p.write_text(after);counts[p.name]=after.count('--ui-font-scale')
+              (assets/'four-fixes.css').write_text(css)
+              html=(assets/'trianon.html').read_text()
+              html=html.replace('<link rel="stylesheet" href="two-fixes.css">','<link rel="stylesheet" href="two-fixes.css"><link rel="stylesheet" href="four-fixes.css">').replace('Trianon 0.10','Trianon 0.11')
+              (assets/'trianon.html').write_text(html)
+              p=assets/'phone.js';js=p.read_text()
+              assert 'const sizes = {large:13,medium:11.5,small:10.5};' in js
+              js=js.replace('const sizes = {large:13,medium:11.5,small:10.5};','const sizes = {large:14,medium:11.5,small:10};')
+              anchor="body.dataset.phoneFont=appearance.preset;root.style.setProperty('--phone-font',sizes[appearance.preset]+'px');"
+              assert js.count(anchor)==1
+              js=js.replace(anchor,anchor+"root.style.setProperty('--ui-font-scale',String(sizes[appearance.preset]/11.5));")
+              js=js.replace("group.setAttribute('aria-label','对话字号')","group.setAttribute('aria-label','全局字号')")
+              js=js.replace("font.querySelector('.tm').append(group);", "font.querySelector('.tm-hd b').textContent='全局字号';font.querySelector('.tm-hd small').textContent='页面 · 正文 · 输入框';font.querySelector('.tm').append(group);")
+              # Output state has one owner. No actual generation occurs in this offline UI;
+              # sendNow returns its preview response synchronously and settles in finally.
+              anchor='  function closePanels(){'
+              state="""  function setResponseState(state='idle'){
+              body.dataset.responseState=state;
+              body.classList.remove('phone-wait');
+              const sending=state==='generating';
+              const send=document.querySelector('.send');send.setAttribute('aria-busy',String(sending));
+              send.setAttribute('aria-label',sending?'模型输出中':'发送');
+              document.querySelector('.ap-wait').setAttribute('aria-hidden',String(!sending));
+            }
+          """
+              assert js.count(anchor)==1
+              js=js.replace(anchor,state+anchor+"\n    setResponseState('idle');")
+              js=js.replace("body.classList.add('phone-wait');", "setResponseState('idle');")
+              js=js.replace("body.classList.remove('phone-wait');ensureSession();", "setResponseState('idle');ensureSession();")
+              start=js.index('  function sendNow(text){');end=js.index('  function newChat()',start)
+              js=js[:start]+'''  function sendNow(text){
+              text=(text||ci.value).trim();if(!text)return;
+              closePanels();closeMenu();ensureSession();
+              try{
+                if(!current.messages.length)current.title=text.slice(0,26);
+                current.messages.push({role:'user',text},{role:'assistant',text:'收到你的消息。当前仍是离线界面预览，尚未连接模型，也不会读取或修改手机文件。'});
+                if(current.messages.length>100)current.messages.splice(0,current.messages.length-100);
+                ci.value='';resizeInput();renderSession();ci.blur();
+              }finally{setResponseState('idle')}
+            }
+          '''+js[end:]
+              js=js.replace('  applyAppearance();fit();', "  setResponseState('idle');applyAppearance();fit();")
+              js=js.replace('离线预览 0.10','离线预览 0.11')
+              p.write_text(js)
+              # Recompute SVG geometry only when drawer content size changes. No polling,
+              # resize/frame loop, SVG stretching, or repeated callback-induced resize.
+              p=assets/'files.js';js=p.read_text()
+              anchor="const drawer=$('flDrawer'),rowsEl=$('flRows'),treeEl=$('flTree'),flt=$('flFlt'),cnt=$('flCnt'),pvEl=$('flPv'),atEl=$('flAt'),dropEl=$('flDrop'),ghost=$('flGhost'),fly=$('flFly');"
+              assert js.count(anchor)==1
+              resize='''
+          let boardHeight=0;
+          const fitBoard=()=>{
+            const height=Math.max(340,Math.ceil(drawer.offsetHeight));
+            if(height===boardHeight)return;
+            boardHeight=height;
+            drawer.querySelector('.fl-board').innerHTML=boardSVG(DW,height);
+          };
+          const boardObserver=new ResizeObserver(fitBoard);boardObserver.observe(drawer);
+          '''
+              js=js.replace(anchor,anchor+resize)
+              p.write_text(js)
+              gradle=assets.parent.parent.parent/'build.gradle'
+              gradle.write_text(gradle.read_text().replace('versionCode 10','versionCode 11').replace('0.10-preview','0.11-preview'))
+              data=json.loads((assets/'build-info.json').read_text());data.update(version='0.11-preview',fontSizes={'small':10,'medium':11.5,'large':14},scaledStylesheets=counts,changeScope=['shared composer and bubble typography','explicit idle/generating state, approval no longer triggers waiting','global font-size preferences across all pages','content-sized blue file board with regenerated SVG'])
+              (assets/'build-info.json').write_text(json.dumps(data,ensure_ascii=False,indent=2))
+              print('0.11: shared fonts, global font scaling, settled output state, content-sized file SVG')
+
+          fix011("android-preview/app/src/main/assets", '/* 0.11: keep the stationery palette; typography follows the shared body size. */\nhtml body{font-size:var(--phone-font,11.5px)!important}\nhtml body .field .ph .ci,\nhtml body .field .ph .ci::placeholder,\nhtml body .field .bar .pill:not(.plus),\nhtml body .field #mchip .mc-m,\nhtml body .field #mchip .mc-d,\nhtml body .field #mchip .mc-t,\nhtml body .paper-bubble{font-size:var(--phone-font,11.5px)!important}\nhtml body .field .ph .ci::placeholder{font-family:inherit!important;letter-spacing:0!important}\nhtml body .field #mchip .mc-t{letter-spacing:1px!important}\n@media(max-width:340px){\n html body[data-phone-font="large"] .field .bar{column-gap:4px!important}\n html body[data-phone-font="large"] .field .bar .pill.rb{padding-left:8px!important;padding-right:8px!important}\n}\n/* Plus is an icon, not oversized writing. Preserve its existing design. */\nhtml body .field .bar .pill.plus{font-size:25px!important}\n/* No model is connected in this preview. Only the explicit generating state may\n   display the hourglass; approval cards are not a generation state. */\nhtml body .send .ap-wait{display:none!important;opacity:0!important;visibility:hidden!important}\nhtml body .send .ap-stop{display:none!important}\nhtml body .send .sl.s0{display:block!important}\nhtml body[data-response-state="generating"] .send .ap-wait{display:block!important;opacity:1!important;visibility:visible!important}\nhtml body[data-response-state="generating"] .send>img,\nhtml body[data-response-state="generating"] .send .sl.s0{visibility:hidden!important}\nhtml body:not([data-response-state="generating"]) .send>img,\nhtml body:not([data-response-state="generating"]) .send .sl.s0{visibility:visible!important;opacity:1!important}\n/* Let content determine the board height, including the bottom workspace note.\n   boardSVG is redrawn to this height, so its trim is not vertically stretched. */\nhtml body #flDrawer{height:auto!important;min-height:0!important;padding-bottom:1px!important}\nhtml body #flRows{min-height:0!important}\nhtml body #flDrawer>.phone-file-note{position:relative!important;inset:auto!important;margin:12px 20px 18px!important}\nhtml body #flDrawer .fl-board{pointer-events:none!important}\nhtml body #flDrawer .fl-board>svg{display:block!important;width:100%!important}\nhtml body #flDrawer .fl-none.on{position:relative!important;inset:auto!important;margin:12px 28px!important}\nhtml body #flDrawer .fl-empty.on{position:relative!important;inset:auto!important;margin:0!important}\n/* Prevent the longest filenames from protruding when global type is enlarged. */\nhtml body #flRoot .sl-nm{max-width:calc(100% - 58px)!important;overflow:hidden!important;text-overflow:ellipsis!important}\nhtml body #flRoot .fd-nm{max-width:calc(100% - 102px)!important}\n')
+          PY
+
       - name: Build installable APK
         working-directory: android-preview
         run: gradle --no-daemon :app:assembleDebug
@@ -608,13 +706,13 @@ jobs:
       - name: Prepare download
         run: |
           mkdir -p apk-download
-          cp android-preview/app/build/outputs/apk/debug/app-debug.apk apk-download/Trianon-preview-0.10.apk
+          cp android-preview/app/build/outputs/apk/debug/app-debug.apk apk-download/Trianon-preview-0.11.apk
           printf '%s\n' 'Trianon preview: UI demo only. AI chat and phone file editing are not implemented yet.' 'This is a debug preview. Signing may change between builds; do not store important data in it.' > apk-download/README.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Trianon-preview-0.10-APK
+          name: Trianon-preview-0.11-APK
           path: apk-download/
           if-no-files-found: error
           retention-days: 7
